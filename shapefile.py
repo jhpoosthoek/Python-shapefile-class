@@ -107,6 +107,18 @@ class shapefile():
         for field in fieldslist:
             fieldnames.append(field[0])
         self.fieldnames = fieldnames
+    def fieldvaluelist(self, fieldname, doubles=1):
+        nrfeats = self.layer.GetFeatureCount()
+        values = []
+        for i in range(nrfeats):
+            feat = self.layer.GetFeature(i)
+            value = feat.GetField("DESCR")
+            if doubles == 1:
+                values.append(value)
+            else:
+                if not value in values:
+                    values.append(value)
+        return values
     def createfeatfromlist(self, pointslist, tabledict={}, returnfeat = 0):
         if pointslist != []:
             defn = self.layer.GetLayerDefn()
@@ -189,15 +201,11 @@ class shapefile():
                 feature.SetField(item, tabledict[item])
         self.layer.CreateFeature(feature)
         feature.Destroy()
-    def selectfeat(self, fieldname, value):
-        #selectlayer = self.ds.ExecuteSQL("select * from " + self.name + " where " + fieldname + " = '" + value + "'")
+    def selectfeats(self, fieldname, value):
         self.layer.ResetReading()
-        feat = self.layer.GetNextFeature()
-        while feat:
-            if feat.GetField(fieldname) == value:
-                break
-            feat = self.layer.GetNextFeature()
-        return feat
+        sqlstring = 'SELECT * FROM %s WHERE "%s" = "%s"' % (self.layer.GetName(), fieldname, value)
+        layer_select = self.ds.ExecuteSQL(sqlstring)
+        return layer_select
     def length(self, linelist):
         # calculate length from a geometry line
         length = 0
