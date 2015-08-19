@@ -574,6 +574,18 @@ class shapefile():
             return feat.GetField(fieldname)
         else:
             return idfeat.GetField(idfeat.GetFieldIndex(fieldname))
+    def fieldexist(self, fieldname):
+        index = self.layer.FindFieldIndex(fieldname, True)
+        if index == -1:
+            return False
+        else:
+            return True
+    def deletefeat(self, feat_or_id):
+        if str(feat_or_id).isdigit():
+            self.layer.DeleteFeature(feat_or_id)
+        else:
+            id = feat_or_id.GetFID()
+            self.layer.DeleteFeature(id)
     def extent(self):
         return self.layer.GetExtent()
 
