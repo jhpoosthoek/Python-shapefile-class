@@ -1,8 +1,17 @@
 import math
-import os
-from osgeo import ogr
-from osgeo import osr
-from osgeo import gdal
+import os, sys
+try:
+    from osgeo import ogr
+    from osgeo import osr
+    from osgeo import gdal
+except:
+    try:
+        import ogr
+        import osr
+        import gdal
+    except:
+        print "No GDAL/OGR available, please install"
+        sys.exit()
 
 class shapefile():
     def __init__(self, mode, pathname, type=0, fieldslist=[], projection=None, ogr=ogr):
@@ -96,11 +105,26 @@ class shapefile():
             self.ds = ds
             self.layer = layer
             if projection != None:
+                # http://www.gis.usu.edu/~chrisg/python/2009/lectures/ospy_slides2.pdf#page=27
                 if projection[0] == "ESRI":
-                    file = open(self.dirname + "/" + self.filename[:-3] + "prj","w")
-                    file.write(projection[1])
-                    file.close()
-            self.projection = projection
+                    proj_text = projection[1]
+                elif projection[0] == "PROJ4":
+                    srs = osr.SpatialReference()
+                    srs.ImportFromProj4(projection[1])
+                    proj_text = srs.ExportToWkt()
+                elif projection[0] == "EPSG":
+                    srs = osr.SpatialReference()
+                    srs.ImportFromEPSG(projection[1])
+                    proj_text = srs.ExportToWkt()
+                else:
+                    print "This projection type is currently not supported"
+                    sys.exit()
+                file = open(self.dirname + "/" + self.filename[:-3] + "prj","w")
+                file.write(proj_text)
+                file.close()
+                self.projection = ["ESRI", proj_text]
+            else:
+                self.projection = None
             self.mode = mode
         # field names:
         fieldnames = []
@@ -112,7 +136,7 @@ class shapefile():
         values = []
         for i in range(nrfeats):
             feat = self.layer.GetFeature(i)
-            value = feat.GetField("DESCR")
+            value = feat.GetField(fieldname)
             if doubles == 1:
                 values.append(value)
             else:
