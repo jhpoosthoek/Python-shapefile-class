@@ -1,3 +1,5 @@
+# Latest version: https://raw.githubusercontent.com/jhpoosthoek/Python-shapefile-class/master/shapefile.py
+
 import math
 import os, sys
 try:
@@ -143,7 +145,7 @@ class shapefile():
                 if not value in values:
                     values.append(value)
         return values
-    def createfeatfromlist(self, pointslist, tabledict={}, returnfeat = 0):
+    def createfeatfromlist(self, pointslist, attr_dict={}, returnfeat = 0):
         if pointslist != []:
             defn = self.layer.GetLayerDefn()
             feature = self.ogr.Feature(defn)
@@ -151,19 +153,19 @@ class shapefile():
                 point = self.ogr.Geometry(self.geom_type)
                 point.AddPoint(pointslist[0],pointslist[1])
                 feature.SetGeometry(point)
-                for item in tabledict.keys():
-                    feature.SetField(item, tabledict[item])
+                for item in attr_dict.keys():
+                    feature.SetField(item, attr_dict[item])
                 self.layer.CreateFeature(feature)
             elif self.type == "polyline":
                 polyline = self.ogr.Geometry(self.geom_type)
                 for point in pointslist:
                     polyline.AddPoint(point[0],point[1])
                 feature.SetGeometryDirectly(polyline)
-                for item in tabledict.keys():
-                    if tabledict[item] == "%LENGTH%":
+                for item in attr_dict.keys():
+                    if attr_dict[item] == "%LENGTH%":
                         feature.SetField(item, str(round(self.length(pointslist))))
                     else:
-                        feature.SetField(item, tabledict[item])
+                        feature.SetField(item, attr_dict[item])
                 self.layer.CreateFeature(feature)
             elif self.type == "polygon":
                 ring = self.ogr.Geometry(self.ogr.wkbLinearRing)
@@ -174,11 +176,11 @@ class shapefile():
                 polygon = self.ogr.Geometry(self.geom_type)
                 polygon.AddGeometry(ring)
                 feature.SetGeometryDirectly(polygon)
-                for item in tabledict.keys():
-                    if tabledict[item] == "%AREA%":
+                for item in attr_dict.keys():
+                    if attr_dict[item] == "%AREA%":
                         feature.SetField(item, str(round(polygon.GetArea())))
                     else:
-                        feature.SetField(item, tabledict[item])
+                        feature.SetField(item, attr_dict[item])
                 self.layer.CreateFeature(feature)
             if returnfeat == 1:
                 return feature
@@ -186,22 +188,22 @@ class shapefile():
             else:
                 feature.Destroy()
         else:
-            print "empty list with tabledict=" + str(tabledict)
-    def createfeat(self, feat, tabledict={}):
+            print "empty list with attr_dict=" + str(attr_dict)
+    def createfeat(self, feat, attr_dict={}):
 ##        #OLD#
 ##        defn = self.layer.GetLayerDefn()
 ##        feature = self.ogr.Feature(defn)
 ##        geom = feat.GetGeometryRef()
 ##        feature.SetGeometry(geom)
-##        if tabledict != {}:
-##            for item in tabledict.keys():
+##        if attr_dict != {}:
+##            for item in attr_dict.keys():
 ##                # TODO: add %LENGTH% and %AREA%
-##                feature.SetField(item, tabledict[item])
+##                feature.SetField(item, attr_dict[item])
 ##        self.layer.CreateFeature(feature)
 ##        feat.Destroy()
 ##        feature.Destroy()
         #NEW#
-        if tabledict == {}:
+        if attr_dict == {}:
             self.layer.CreateFeature(feat)
             feat.Destroy()
         else:
@@ -209,20 +211,20 @@ class shapefile():
             feature = self.ogr.Feature(defn)
             geom = feat.GetGeometryRef()
             feature.SetGeometry(geom)
-            for item in tabledict.keys():
+            for item in attr_dict.keys():
                 # TODO: add %LENGTH% and %AREA%
-                feature.SetField(item, tabledict[item])
+                feature.SetField(item, attr_dict[item])
             self.layer.CreateFeature(feature)
             feat.Destroy()
             feature.Destroy()
-    def createfeatfromgeom(self, geom, tabledict={}):
+    def createfeatfromgeom(self, geom, attr_dict={}):
         defn = self.layer.GetLayerDefn()
         feature = self.ogr.Feature(defn)
         feature.SetGeometry(geom)
-        if tabledict != {}:
-            for item in tabledict.keys():
+        if attr_dict != {}:
+            for item in attr_dict.keys():
                 # TODO: add %LENGTH% and %AREA%
-                feature.SetField(item, tabledict[item])
+                feature.SetField(item, attr_dict[item])
         self.layer.CreateFeature(feature)
         feature.Destroy()
     def selectfeats(self, fieldname, value):
@@ -240,18 +242,18 @@ class shapefile():
             (ox,oy) = (x,y)
             start = 0
         return length
-    def buffer(self, feat, bufsize, tabledict):
+    def buffer(self, feat, bufsize, attr_dict):
         if self.type == "polygon":
             self.defn = self.layer.GetLayerDefn()
             feature = self.ogr.Feature(self.defn)
             polyline = feat.GetGeometryRef()
             polygon = polyline.Buffer(bufsize)
             feature.SetGeometryDirectly(polygon)
-            for item in tabledict.keys():
-                if tabledict[item] == "%AREA%":
+            for item in attr_dict.keys():
+                if attr_dict[item] == "%AREA%":
                     feature.SetField(item, str(round(polygon.GetArea())))
                 else:
-                    feature.SetField(item, tabledict[item])
+                    feature.SetField(item, attr_dict[item])
             self.layer.CreateFeature(feature)
     def cprj(self, projection):
         if projection[0] == "ESRI":
@@ -341,11 +343,16 @@ class shapefile():
             elif self.type == "polygon":
                 geom = feat.GetGeometryRef().GetGeometryRef(0)
             featitem.append(geom)
-        table = {}
+        attr_dict = {}
         for field in self.fieldslist:
-            table[field[0]] = feat.GetField(field[0])
-        featitem.append(table)
+            attr_dict[field[0]] = feat.GetField(field[0])
+        featitem.append(attr_dict)
         return featitem
+    def attr_dict(self, feat):
+        attr_dict = {}
+        for field in self.fieldslist:
+            attr_dict[field[0]] = feat.GetField(field[0])
+        return attr_dict
     def feats2list(self, keepgeom=0):
         list = []
         self.layer.ResetReading()
@@ -388,23 +395,23 @@ class shapefile():
                 elif self.type == "polygon":
                     geom = feat.GetGeometryRef().GetGeometryRef(0)
                 featitem.append(geom)
-            table = {}
+            attr_dict = {}
             for field in self.fieldslist:
-                table[field[0]] = feat.GetField(field[0])
-            featitem.append(table)
+                attr_dict[field[0]] = feat.GetField(field[0])
+            featitem.append(attr_dict)
             list.append(featitem)
             feat = self.layer.GetNextFeature()
         return list
-    def table2list(self):
+    def attr2list(self):
         list = []
         self.layer.ResetReading()
         feat = self.layer.GetNextFeature()
         while feat:
             geomstring = str(feat.GetGeometryRef())
-            table = {}
+            attr_dict = {}
             for field in self.fieldslist:
-                table[field[0]] = feat.GetField(field[0])
-            list.append(table)
+                attr_dict[field[0]] = feat.GetField(field[0])
+            list.append(attr_dict)
             feat = self.layer.GetNextFeature()
         return list
     def createfeatsfromlist(self, featlist):
@@ -635,3 +642,50 @@ def pointsf2list(sfname):
         pointy = point.geometry().GetY()
         list.append([pointx,pointy])
     return list
+
+def polygon2linesegments(shp, filename):
+    if shp.type == "polygon":
+        shpout = shapefile("write", filename, "polyline", shp.fieldslist, projection=shp.projection)
+        for feat in shp.features:
+            geom = feat.GetGeometryRef()
+            rings = geom.GetGeometryCount()
+            for r in range(rings):
+                ring = geom.GetGeometryRef(r)
+                points = ring.GetPointCount()
+                for p in range(points)[:-1]:
+                    x1, y1, z1 = ring.GetPoint(p)
+                    x2, y2, z2 = ring.GetPoint(p+1)
+                    polyline = ogr.Geometry(shpout.geom_type)
+                    polyline.AddPoint(x1, y1)
+                    polyline.AddPoint(x2, y2)
+                    shpout.createfeatfromgeom(polyline)
+        shpout.finish()
+        print "Saved: " + filename
+    else:
+        print "Not a polygon shapefile"
+
+def EqualSegments(geom1, geom2):
+    x1, y1, z1 = geom1.GetPoint(0)
+    x2, y2, z2 = geom1.GetPoint(1)
+    polyline1 = ogr.Geometry(ogr.wkbLineString)
+    polyline1.AddPoint(x1, y1)
+    polyline1.AddPoint(x2, y2)
+
+    x1, y1, z1 = geom2.GetPoint(0)
+    x2, y2, z2 = geom2.GetPoint(1)
+    polyline2 = ogr.Geometry(ogr.wkbLineString)
+    polyline2.AddPoint(x1, y1)
+    polyline2.AddPoint(x2, y2)
+
+    if polyline1.Equal(polyline2):
+        return True
+    else:
+        x1, y1, z1 = geom2.GetPoint(1)
+        x2, y2, z2 = geom2.GetPoint(0)
+        polyline3 = ogr.Geometry(ogr.wkbLineString)
+        polyline3.AddPoint(x1, y1)
+        polyline3.AddPoint(x2, y2)
+        if polyline1.Equal(polyline3):
+            return True
+        else:
+            return False
