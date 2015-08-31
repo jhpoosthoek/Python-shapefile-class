@@ -1,5 +1,3 @@
-# Latest version: https://raw.githubusercontent.com/jhpoosthoek/Python-shapefile-class/master/shapefile.py
-
 import math
 import os, sys
 try:
@@ -15,6 +13,15 @@ except:
         print "No GDAL/OGR available, please install"
         sys.exit()
 
+def mean(numbers):
+    try:
+        summing = float(sum(numbers))
+        length = float(len(numbers))
+        m = summing / length
+    except:
+        m = 0
+    return m
+        
 class shapefile():
     def __init__(self, mode, pathname, type=0, fieldslist=[], projection=None, ogr=ogr):
         # Check if no path is given, then use os.getcwd()
@@ -35,12 +42,18 @@ class shapefile():
                 layer = ds.GetLayer()
                 self.name = layer.GetName()
                 type = layer.GetLayerDefn().GetGeomType()
-                if type == 1:
+                if type == ogr.wkbPoint:
                     self.type = "point"
-                elif type == 2:
+                if type == ogr.wkbPoint25D:
+                    self.type = "pointz"
+                elif type == ogr.wkbLineString:
                     self.type = "polyline"
-                elif type == 3:
+                elif type == ogr.wkbLineString25D:
+                    self.type = "polylinez"
+                elif type == ogr.wkbPolygon:
                     self.type = "polygon"
+                elif type == ogr.wkbPolygon25D:
+                    self.type = "polygonz"
                 else:
                     self.type = "unknown"
                 feat = layer.GetNextFeature()
@@ -87,10 +100,16 @@ class shapefile():
             ds = driver.CreateDataSource(pathname)
             if self.type == "point":
                 self.geom_type = self.ogr.wkbPoint
+            if self.type == "pointz":
+                self.geom_type = self.ogr.wkbPoint25D
             elif self.type == "polyline":
                 self.geom_type = self.ogr.wkbLineString
+            elif self.type == "polylinez":
+                self.geom_type = self.ogr.wkbLineString25D
             elif self.type == "polygon":
                 self.geom_type = self.ogr.wkbPolygon
+            elif self.type == "polygonz":
+                self.geom_type = self.ogr.wkbPolygon25D
             else:
                 # exit
                 print "wrong type"
@@ -689,3 +708,99 @@ def EqualSegments(geom1, geom2):
             return True
         else:
             return False
+            
+def fieldz2geometryz(inshpfile, outshpfile, fieldname):
+    shpin = shapefile("read", inshpfile)
+    try:
+        shpout = shapefile("write", outshpfile, shpin.type + "z", shpin.fieldslist, projection=shpin.projection)
+
+        for feat in shpin.features:
+            z = feat.GetField(feat.GetFieldIndex(fieldname))
+            attr_dict = shpin.attr_dict(feat)
+            
+            defn = shpout.layer.GetLayerDefn()
+            newfeat = ogr.Feature(defn)
+            if shpout.type == "pointz":
+                geom = feat.GetGeometryRef()
+                x = geom.GetX()
+                y = geom.GetY()
+                
+                newpoint = ogr.Geometry(shpout.geom_type)
+                newpoint.AddPoint(x, y, z)
+                newfeat.SetGeometry(newpoint)
+            elif shpout.type == "polylinez":
+                polyline = ogr.Geometry(shpout.geom_type)
+
+                geom = feat.GetGeometryRef()
+                points = geom.GetPointCount()
+                for p in range(points):
+                    x, y, zero = geom.GetPoint(p)
+                    polyline.AddPoint(x, y, z)
+                newfeat.SetGeometryDirectly(polyline)
+            elif shpout.type == "polygonz":
+                polygon = ogr.Geometry(shpout.geom_type)
+                
+                geom = feat.GetGeometryRef()
+                rings = geom.GetGeometryCount()
+                for r in range(rings):
+                    ring = geom.GetGeometryRef(r)
+                    newring = ogr.Geometry(ogr.wkbLinearRing)
+                    points = ring.GetPointCount()
+                    for p in range(points):
+                        x, y, zero = ring.GetPoint(p)
+                        newring.AddPoint(x, y, z)
+                    polygon.AddGeometry(newring)
+                newfeat.SetGeometryDirectly(polygon)
+            shpout.createfeat(newfeat, attr_dict)
+        shpin.finish()
+        shpout.finish()
+    except:
+        print "An error occured"
+        
+def geometryz2fieldz(inshpfile, outshpfile):
+    shpin = shapefile("read", inshpfile)
+    fieldslist = []
+    for i in range(len(shpin.fieldslist)):
+        fieldslist.append(shpin.fieldslist[i])
+    
+    if shpin.type == "pointz":
+        fieldname = 'Z'
+        fieldslist.append([fieldname, 2, 10, 5])
+    else:
+        fieldname1 = 'MIN_Z'
+        fieldname2 = 'MAX_Z'
+        fieldname3 = 'MEAN_Z'
+
+        fieldslist.append([fieldname1, 2, 10, 5])
+        fieldslist.append([fieldname2, 2, 10, 5])
+        fieldslist.append([fieldname3, 2, 10, 5])
+
+    shpout = shapefile("write", outshpfile, shpin.type, fieldslist, projection=shpin.projection)
+        
+    for feat in shpin.features:
+        zlist = []
+        attr_dict = shpin.attr_dict(feat)
+        geom = feat.GetGeometryRef()
+        if shpout.type == "pointz":
+            z = geom.GetZ()
+            attr_dict[fieldname] = z
+        else:
+            if shpout.type == "polylinez":
+                points = geom.GetPointCount()
+                for p in range(points):
+                    x, y, z = geom.GetPoint(p)
+                    zlist.append(z)
+            elif shpout.type == "polygonz":
+                rings = geom.GetGeometryCount()
+                for r in range(rings):
+                    ring = geom.GetGeometryRef(r)
+                    points = ring.GetPointCount()
+                    for p in range(points):
+                        x, y, z = ring.GetPoint(p)
+                        zlist.append(z)
+            attr_dict[fieldname1] = min(zlist)
+            attr_dict[fieldname2] = max(zlist)
+            attr_dict[fieldname3] = mean(zlist)
+        shpout.createfeat(feat, attr_dict)
+    shpin.finish()
+    shpout.finish()
