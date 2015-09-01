@@ -10,7 +10,7 @@ except:
         import osr
         import gdal
     except:
-        print "No GDAL/OGR available, please install"
+        print "No GDAL/OGR available, please install or use f.e. within OSGeo4W Shell"
         sys.exit()
 
 def mean(numbers):
@@ -33,8 +33,8 @@ class shapefile():
         self.dirname = dirname
         self.ogr = ogr
         driver = self.ogr.GetDriverByName('ESRI Shapefile')
-        if mode == "read" or mode == "append":
-            if mode == "append":
+        if mode == "read" or mode == "update":
+            if mode == "update":
                 ds = driver.Open(pathname, 1)
             else:
                 ds = driver.Open(pathname, 0)
@@ -190,7 +190,7 @@ class shapefile():
                 ring = self.ogr.Geometry(self.ogr.wkbLinearRing)
                 for point in pointslist:
                     ring.AddPoint(point[0],point[1])
-                if pointslist[len(pointslist) - 1] != pointslist[0]:
+                if pointslist[-1] != pointslist[0]:
                     ring.AddPoint(pointslist[0][0],pointslist[0][1])
                 polygon = self.ogr.Geometry(self.geom_type)
                 polygon.AddGeometry(ring)
@@ -251,34 +251,6 @@ class shapefile():
         sqlstring = 'SELECT * FROM %s WHERE "%s" = "%s"' % (self.layer.GetName(), fieldname, value)
         layer_select = self.ds.ExecuteSQL(sqlstring)
         return layer_select
-    def length(self, linelist):
-        # calculate length from a geometry line
-        length = 0
-        start = 1
-        for (x,y) in linelist:
-            if start != 1:
-                length = length + ((y - oy)*(y - oy) + (x - ox)*(x - ox))**0.5
-            (ox,oy) = (x,y)
-            start = 0
-        return length
-    def buffer(self, feat, bufsize, attr_dict):
-        if self.type == "polygon":
-            self.defn = self.layer.GetLayerDefn()
-            feature = self.ogr.Feature(self.defn)
-            polyline = feat.GetGeometryRef()
-            polygon = polyline.Buffer(bufsize)
-            feature.SetGeometryDirectly(polygon)
-            for item in attr_dict.keys():
-                if attr_dict[item] == "%AREA%":
-                    feature.SetField(item, str(round(polygon.GetArea())))
-                else:
-                    feature.SetField(item, attr_dict[item])
-            self.layer.CreateFeature(feature)
-    def cprj(self, projection):
-        if projection[0] == "ESRI":
-            file = open(self.pathname[:-3] + "prj","w")
-            file.write(projection[1])
-            file.close()
     def finish(self):
         self.ds.Destroy()
         del self.ds
@@ -638,11 +610,40 @@ class shapefile():
             self.layer.DeleteFeature(id)
     def extent(self):
         return self.layer.GetExtent()
-
+    #################### CHECK ####################
+    def length(self, linelist):
+        # calculate length from a geometry line
+        length = 0
+        start = 1
+        for (x,y) in linelist:
+            if start != 1:
+                length = length + ((y - oy)*(y - oy) + (x - ox)*(x - ox))**0.5
+            (ox,oy) = (x,y)
+            start = 0
+        return length
+    def buffer(self, feat, bufsize, attr_dict):
+        if self.type == "polygon":
+            self.defn = self.layer.GetLayerDefn()
+            feature = self.ogr.Feature(self.defn)
+            polyline = feat.GetGeometryRef()
+            polygon = polyline.Buffer(bufsize)
+            feature.SetGeometryDirectly(polygon)
+            for item in attr_dict.keys():
+                if attr_dict[item] == "%AREA%":
+                    feature.SetField(item, str(round(polygon.GetArea())))
+                else:
+                    feature.SetField(item, attr_dict[item])
+            self.layer.CreateFeature(feature)
+    def cprj(self, projection):
+        if projection[0] == "ESRI":
+            file = open(self.pathname[:-3] + "prj","w")
+            file.write(projection[1])
+            file.close()
+        
 class feature:
     def __init__(self, feat):
         self.feat = feat
-    def field(self,fieldname):
+    def field(self, fieldname):
         return self.feat.GetField(self.feat.GetFieldIndex(fieldname))
     def geometry(self):
         return self.feat.GetGeometryRef()
@@ -662,9 +663,14 @@ def pointsf2list(sfname):
     return list
 
 def polygon2linesegments(shp, filename):
-    if shp.type == "polygon":
-        shpout = shapefile("write", filename, "polyline", shp.fieldslist, projection=shp.projection)
+    if shp.type == "polygon" or shp.type == "polygonz":
+        if shp.type[-1:] == "z":
+            type = "polylinez"
+        else:
+            type = "polyline"
+        shpout = shapefile("write", filename, type, shp.fieldslist, projection=shp.projection)
         for feat in shp.features:
+            attr_dict = shp.attr_dict(feat)
             geom = feat.GetGeometryRef()
             rings = geom.GetGeometryCount()
             for r in range(rings):
@@ -674,9 +680,9 @@ def polygon2linesegments(shp, filename):
                     x1, y1, z1 = ring.GetPoint(p)
                     x2, y2, z2 = ring.GetPoint(p+1)
                     polyline = ogr.Geometry(shpout.geom_type)
-                    polyline.AddPoint(x1, y1)
-                    polyline.AddPoint(x2, y2)
-                    shpout.createfeatfromgeom(polyline)
+                    polyline.AddPoint(x1, y1, z1)
+                    polyline.AddPoint(x2, y2, z2)
+                    shpout.createfeatfromgeom(polyline, attr_dict)
         shpout.finish()
         print "Saved: " + filename
     else:
@@ -685,24 +691,33 @@ def polygon2linesegments(shp, filename):
 def EqualSegments(geom1, geom2):
     x1, y1, z1 = geom1.GetPoint(0)
     x2, y2, z2 = geom1.GetPoint(1)
-    polyline1 = ogr.Geometry(ogr.wkbLineString)
-    polyline1.AddPoint(x1, y1)
-    polyline1.AddPoint(x2, y2)
+    if geom1.GetGeometryType() == ogr.wkbLineString:
+        polyline1 = ogr.Geometry(ogr.wkbLineString)
+    else:
+        polyline1 = ogr.Geometry(ogr.wkbLineString25D)
+    polyline1.AddPoint(x1, y1, z1)
+    polyline1.AddPoint(x2, y2, z2)
 
     x1, y1, z1 = geom2.GetPoint(0)
     x2, y2, z2 = geom2.GetPoint(1)
-    polyline2 = ogr.Geometry(ogr.wkbLineString)
-    polyline2.AddPoint(x1, y1)
-    polyline2.AddPoint(x2, y2)
+    if geom2.GetGeometryType() == ogr.wkbLineString:
+        polyline2 = ogr.Geometry(ogr.wkbLineString)
+    else:
+        polyline2 = ogr.Geometry(ogr.wkbLineString25D)
+    polyline2.AddPoint(x1, y1, z1)
+    polyline2.AddPoint(x2, y2, z2)
 
     if polyline1.Equal(polyline2):
         return True
     else:
         x1, y1, z1 = geom2.GetPoint(1)
         x2, y2, z2 = geom2.GetPoint(0)
-        polyline3 = ogr.Geometry(ogr.wkbLineString)
-        polyline3.AddPoint(x1, y1)
-        polyline3.AddPoint(x2, y2)
+        if geom2.GetGeometryType() == ogr.wkbLineString:
+            polyline3 = ogr.Geometry(ogr.wkbLineString)
+        else:
+            polyline3 = ogr.Geometry(ogr.wkbLineString25D)
+        polyline3.AddPoint(x1, y1, z1)
+        polyline3.AddPoint(x2, y2, z2)
         if polyline1.Equal(polyline3):
             return True
         else:
