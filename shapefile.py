@@ -44,7 +44,7 @@ class shapefile():
                 type = layer.GetLayerDefn().GetGeomType()
                 if type == ogr.wkbPoint:
                     self.type = "point"
-                if type == ogr.wkbPoint25D:
+                elif type == ogr.wkbPoint25D:
                     self.type = "pointz"
                 elif type == ogr.wkbLineString:
                     self.type = "polyline"
@@ -100,7 +100,7 @@ class shapefile():
             ds = driver.CreateDataSource(pathname)
             if self.type == "point":
                 self.geom_type = self.ogr.wkbPoint
-            if self.type == "pointz":
+            elif self.type == "pointz":
                 self.geom_type = self.ogr.wkbPoint25D
             elif self.type == "polyline":
                 self.geom_type = self.ogr.wkbLineString
@@ -639,7 +639,6 @@ class shapefile():
     def extent(self):
         return self.layer.GetExtent()
 
-# Maybe it needs feature needs to inherit from feat
 class feature:
     def __init__(self, feat):
         self.feat = feat
