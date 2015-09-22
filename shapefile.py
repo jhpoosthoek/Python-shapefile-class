@@ -668,7 +668,7 @@ def polygon2linesegments(shp, filename):
             type = "polylinez"
         else:
             type = "polyline"
-        shpout = shapefile("write", filename, type, shp.fieldslist, projection=shp.projection)
+        shpout = shapefile("write", filename, type, shp.fieldslist, shp.projection)
         for feat in shp.features:
             attr_dict = shp.attr_dict(feat)
             geom = feat.GetGeometryRef()
@@ -818,3 +818,50 @@ def geometryz2fieldz(inshpfile, outshpfile):
         shpout.createfeat(feat, attr_dict)
     shpin.finish()
     shpout.finish()
+
+def poly2point(inshpfile, outshpfile):
+    shpin = shapefile("read", inshpfile)
+    
+    if shpin.type == "polyline" or shpin.type == "polylinez":
+        # to be added
+        pass
+    elif shpin.type == "polygon" or shpin.type == "polygonz":
+        if shpin.type == "polygon":
+            outtype = "point"
+        else:
+            outtype = "pointz"
+        shpout = shapefile("write", outshpfile, outtype, shpin.fieldslist, shpin.projection)
+        for feat in shpin.features:
+            attr_dict = shpin.attr_dict(feat)
+            geom = feat.GetGeometryRef()
+            rings = geom.GetGeometryCount()
+            for r in range(rings):
+                ring = geom.GetGeometryRef(r)
+                points = ring.GetPointCount()
+                for p in range(points)[:-1]:
+                    x, y, z = ring.GetPoint(p)
+                    point = ogr.Geometry(shpout.geom_type)
+                    point.AddPoint(x, y, z)
+                    defn = shpout.layer.GetLayerDefn()
+                    feature = ogr.Feature(defn)
+                    feature.SetGeometry(point)
+                    shpout.createfeat(feature, attr_dict)
+        shpout.finish()
+    shpin.finish()
+    
+def multipoly2poly(inshpfile, outshpfile):
+    # http://lists.osgeo.org/pipermail/gdal-dev/2010-December/027041.html
+    shpin = shapefile("read", inshpfile)
+    shpout = shapefile("write", outshpfile, shpin.type, shpin.fieldslist, shpin.projection)
+    
+    for feat in shpin.features:
+        attr_dict = shpin.attr_dict(feat)
+        geom = feat.GetGeometryRef()
+        if geom != None:
+            if geom.GetGeometryName() == 'MULTIPOLYGON':
+                for geom_part in geom:
+                    shpout.createfeatfromgeom(geom_part, attr_dict)
+            else:
+                shpout.createfeatfromgeom(geom, attr_dict)
+        else:
+            print "Wrong geometry: ", feat.GetFID()
