@@ -812,9 +812,14 @@ def geometryz2fieldz(inshpfile, outshpfile):
                     for p in range(points):
                         x, y, z = ring.GetPoint(p)
                         zlist.append(z)
-            attr_dict[fieldname1] = min(zlist)
-            attr_dict[fieldname2] = max(zlist)
-            attr_dict[fieldname3] = mean(zlist)
+            if not zlist == []:
+                attr_dict[fieldname1] = min(zlist)
+                attr_dict[fieldname2] = max(zlist)
+                attr_dict[fieldname3] = mean(zlist)
+            else:
+                attr_dict[fieldname1] = 0
+                attr_dict[fieldname2] = 0
+                attr_dict[fieldname3] = 0
         shpout.createfeat(feat, attr_dict)
     shpin.finish()
     shpout.finish()
@@ -823,8 +828,24 @@ def poly2point(inshpfile, outshpfile):
     shpin = shapefile("read", inshpfile)
     
     if shpin.type == "polyline" or shpin.type == "polylinez":
-        # to be added
-        pass
+        if shpin.type == "polyline":
+            outtype = "point"
+        else:
+            outtype = "pointz"
+        shpout = shapefile("write", outshpfile, outtype, shpin.fieldslist, shpin.projection)
+        for feat in shpin.features:
+            attr_dict = shpin.attr_dict(feat)
+            geom = feat.GetGeometryRef()
+            points = geom.GetPointCount()
+            for p in range(points):
+                x, y, z = geom.GetPoint(p)
+                point = ogr.Geometry(shpout.geom_type)
+                point.AddPoint(x, y, z)
+                defn = shpout.layer.GetLayerDefn()
+                feature = ogr.Feature(defn)
+                feature.SetGeometry(point)
+                shpout.createfeat(feature, attr_dict)
+        shpout.finish()
     elif shpin.type == "polygon" or shpin.type == "polygonz":
         if shpin.type == "polygon":
             outtype = "point"
