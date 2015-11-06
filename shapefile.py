@@ -662,16 +662,36 @@ def pointsf2list(sfname):
         list.append([pointx,pointy])
     return list
 
-def polygon2linesegments(shp, filename):
-    if shp.type == "polygon" or shp.type == "polygonz":
-        if shp.type[-1:] == "z":
-            type = "polylinez"
-        else:
-            type = "polyline"
-        shpout = shapefile("write", filename, type, shp.fieldslist, shp.projection)
-        for feat in shp.features:
-            attr_dict = shp.attr_dict(feat)
-            geom = feat.GetGeometryRef()
+def poly2linesegments(shp, filename, fid=False):
+    if shp.type[-1:] == "z":
+        type = "polylinez"
+    else:
+        type = "polyline"
+    if fid != False:
+        fieldslist = []
+        for item in shp.fieldslist:
+            fieldslist.append(item)
+        fieldslist.append([fid,0,0,0])
+    else:
+        fieldslist = shp.fieldslist
+        
+    shpout = shapefile("write", filename, type, fieldslist, shp.projection)
+    for feat in shp.features:
+        attr_dict = shp.attr_dict(feat)
+        geom = feat.GetGeometryRef()
+        if fid != False:
+            attr_dict[fid] = feat.GetFID()
+        
+        if shp.type == "polyline" or shp.type == "polylinez":
+            points = geom.GetPointCount()
+            for p in range(points)[:-1]:
+                x1, y1, z1 = geom.GetPoint(p)
+                x2, y2, z2 = geom.GetPoint(p+1)
+                polyline = ogr.Geometry(shpout.geom_type)
+                polyline.AddPoint(x1, y1, z1)
+                polyline.AddPoint(x2, y2, z2)
+                shpout.createfeatfromgeom(polyline, attr_dict)
+        elif shp.type == "polygon" or shp.type == "polygonz":
             rings = geom.GetGeometryCount()
             for r in range(rings):
                 ring = geom.GetGeometryRef(r)
@@ -683,10 +703,8 @@ def polygon2linesegments(shp, filename):
                     polyline.AddPoint(x1, y1, z1)
                     polyline.AddPoint(x2, y2, z2)
                     shpout.createfeatfromgeom(polyline, attr_dict)
-        shpout.finish()
-        print "Saved: " + filename
-    else:
-        print "Not a polygon shapefile"
+    shpout.finish()
+    print "Saved: " + filename
 
 def EqualSegments(geom1, geom2):
     x1, y1, z1 = geom1.GetPoint(0)
