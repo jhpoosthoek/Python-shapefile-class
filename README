@@ -11,20 +11,20 @@ I extensively used the documentation from http://www.gis.usu.edu/~chrisg/python/
 `from shapefile import shapefile`
 
 # Read shapefile:
-```python
+`````python
 shpfile = "filename.shp"
 shp = shapefile("read", shpfile)
 for feat in shp.features: # shp.features is a simple python list with all the features loaded.
     attr_dict = shp.attr_dict(feat)
     # do something
 shp.finish()
-```
+`````
 
 # attr_dict example
 `{"FID": 1 , "NAME": "John"}`
 
 # Write shapefile:
-```python
+`````python
 shpfile = "filename.shp"
 inshp = shapefile("read", shpfile)
 outshp = shapefile("write", shpfile[:-4] + "_new.shp", inshp.type, inshp.fieldslist, inshp.projection)
@@ -34,7 +34,7 @@ for feat in inshp.features:
     outshp.createfeat(feat, attr_dict)
 inshp.finish()
 outshp.finish()
-```
+`````
 
 # projections
 Projections are internally saved as ESRI format strings:
@@ -44,7 +44,7 @@ But can be provided as:
 `projection = ["EPSG", number]`
 
 # Update shapefile with new field
-```python
+`````python
 shpfile = "filename.shp"
 shp = shapefile("update", shpfile)
 if not shp.fieldexist('NAME'):
@@ -53,10 +53,10 @@ if not shp.fieldexist('NAME'):
 for feat in shp.features:
     shp.updatefield(feat, 'NAME', 1)
 shp.finish()
-```
+`````
 
 # Update shapefile by deleting feat
-```python
+`````python
 shpfile = "filename.shp"
 shp = shapefile("update", shpfile)
 
@@ -64,10 +64,10 @@ for feat in shp.features:
     if <some logic>:
         shp.deletefeat(feat)
 shp.finish()
-```
+`````
 
 # Loop through all features with a certain field name value:
-```python
+`````python
 shp = shapefile("read", shpfile)
 values = shp.fieldvaluelist('NAME', doubles=0) # default doubles=1 
 for value in values:
@@ -75,4 +75,4 @@ for value in values:
     for feat in layer_select:
         # do something
 shp.finish()
-```
+`````
