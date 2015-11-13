@@ -1,4 +1,4 @@
-# introduction
+# Introduction
 I've been working on this shapefile python class since 2010. It allows for the easy reading, creation and updating of shapefiles using OGR.
 
 OGR is a prerequisite:
@@ -7,11 +7,11 @@ OR
 `import ogr`
 I extensively used the documentation from http://www.gis.usu.edu/~chrisg/python/2009/docs.html, especially http://www.gis.usu.edu/~chrisg/python/2009/docs/ogr.pdf
 
-# installation
+# Installation
 Simply save shapefile.py in your work folder and call:
 `from shapefile import shapefile`
 
-# Read shapefile:
+# Read shapefile
 `````python
 shpfile = "filename.shp"
 shp = shapefile("read", shpfile)
@@ -24,7 +24,7 @@ shp.finish()
 # attr_dict example
 `{"FID": 1 , "NAME": "John"}`
 
-# Write shapefile:
+# Write shapefile
 `````python
 shpfile = "filename.shp"
 inshp = shapefile("read", shpfile)
@@ -37,14 +37,16 @@ inshp.finish()
 outshp.finish()
 `````
 
-# projections
+# Projections
 Projections are internally saved as ESRI format strings:
 `shp.projection = ["ESRI", 'projection string']`
 But can be provided as:
 `projection = ["PROJ4", 'projection string']`
 `projection = ["EPSG", number]`
 
-# Update shapefile with new field
+# Update shapefile
+
+With new field:
 `````python
 shpfile = "filename.shp"
 shp = shapefile("update", shpfile)
@@ -56,7 +58,7 @@ for feat in shp.features:
 shp.finish()
 `````
 
-# Update shapefile by deleting feat
+By deleting feature:
 `````python
 shpfile = "filename.shp"
 shp = shapefile("update", shpfile)
@@ -67,7 +69,8 @@ for feat in shp.features:
 shp.finish()
 `````
 
-# Loop through all features with a certain field name value:
+# Select
+Loop through all features with a certain field name value:
 `````python
 shp = shapefile("read", shpfile)
 values = shp.fieldvaluelist('NAME', doubles=0) # default doubles=1 
