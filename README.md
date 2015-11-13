@@ -7,7 +7,8 @@ OR
 `import ogr`
 I extensively used the documentation from http://www.gis.usu.edu/~chrisg/python/2009/docs.html, especially http://www.gis.usu.edu/~chrisg/python/2009/docs/ogr.pdf
 
-# installation is simply saving shapefile.py in your work folder and calling:
+# installation
+Simply save shapefile.py in your work folder and call:
 `from shapefile import shapefile`
 
 # Read shapefile:
