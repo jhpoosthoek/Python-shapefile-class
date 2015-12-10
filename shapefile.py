@@ -112,7 +112,7 @@ class shapefile():
                 self.geom_type = self.ogr.wkbPolygon25D
             else:
                 # exit
-                print "wrong type"
+                print "wrong type:", self.type
             self.name = filename[:-4]
             layer = ds.CreateLayer(self.name, None, self.geom_type)
             for field in fieldslist:
@@ -744,8 +744,12 @@ def EqualSegments(geom1, geom2):
 def fieldz2geometryz(inshpfile, outshpfile, fieldname):
     shpin = shapefile("read", inshpfile)
     try:
-        shpout = shapefile("write", outshpfile, shpin.type + "z", shpin.fieldslist, projection=shpin.projection)
-
+        if not "z" in shpin.type:
+            shpout_type = shpin.type + "z"
+        else:
+            shpout_type = shpin.type
+        shpout = shapefile("write", outshpfile, shpout_type, shpin.fieldslist, projection=shpin.projection)
+        
         for feat in shpin.features:
             z = feat.GetField(feat.GetFieldIndex(fieldname))
             attr_dict = shpin.attr_dict(feat)
