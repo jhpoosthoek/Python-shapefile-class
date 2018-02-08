@@ -248,7 +248,7 @@ class shapefile():
         feature.Destroy()
     def selectfeats(self, fieldname, value):
         self.layer.ResetReading()
-        sqlstring = 'SELECT * FROM %s WHERE "%s" = "%s"' % (self.layer.GetName(), fieldname, value)
+        sqlstring = '''SELECT * FROM %s WHERE "%s" = '%s' ''' % (self.layer.GetName(), fieldname, value)
         layer_select = self.ds.ExecuteSQL(sqlstring)
         return layer_select
     def finish(self):

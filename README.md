@@ -30,7 +30,7 @@ shpfile = "filename.shp"
 inshp = shapefile("read", shpfile)
 outshp = shapefile("write", shpfile[:-4] + "_new.shp", inshp.type, inshp.fieldslist, inshp.projection)
 for feat in inshp.features:
-    attr_dict = shp.attr_dict(feat)
+    attr_dict = inshp.attr_dict(feat)
     # do something with feat or attr_dict
     outshp.createfeat(feat, attr_dict)
 inshp.finish()
